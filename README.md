@@ -2,12 +2,12 @@
 Parking-env is a gymnasium-based environment for reinforcement learning, written in a single Python file and accelerated by Numba. The environment is designed to simulate the task of parking a vehicle in a parking lot, where the agent controls the steering angle and the speed to park the vehicle successfully.
 
 <p align="center">
-    <img src="https://raw.githubusercontent.com/KexianShen/parking-env/media/ppo-discrete-0.gif?token=GHSAT0AAAAAACAATGHEIQG77657BALIOJKSZCU7LMQ"><br/>
+    <img src="https://raw.githubusercontent.com/KexianShen/parking-env/media/ppo-discrete-0.gif?raw=true"><br/>
     <em>PPO agent with discrete actions</em>
 </p>
 
 <p align="center">
-    <img src="https://raw.githubusercontent.com/KexianShen/parking-env/media/ppo-multidiscrete-0.gif?token=GHSAT0AAAAAACAATGHEPZB5YBPMI6HF4G5IZCU7OJA"><br/>
+    <img src="https://raw.githubusercontent.com/KexianShen/parking-env/media/ppo-multidiscrete-0.gif?raw=true"><br/>
     <em>PPO agent with multidiscrete actions</em>
 </p>
 
