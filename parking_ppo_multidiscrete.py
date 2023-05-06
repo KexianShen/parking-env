@@ -114,7 +114,7 @@ class Agent(nn.Module):
             layer_init(nn.Linear(9216, 512)),
             nn.ReLU(),
         )
-        self.nvec = envs.single_action_space.nvec
+        self.register_buffer("nvec", torch.IntTensor(envs.single_action_space.nvec))
         self.actor = layer_init(nn.Linear(512, self.nvec.sum()), std=0.01)
         self.critic = layer_init(nn.Linear(512, 1), std=1)
 
@@ -371,4 +371,4 @@ if __name__ == "__main__":
     envs.close()
     writer.close()
 
-    torch.save(agent.state_dict(), "ppo_multidiscrete.pth")
+    torch.save(agent, "ppo_multidiscrete.pth")

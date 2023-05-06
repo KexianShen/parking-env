@@ -367,4 +367,4 @@ if __name__ == "__main__":
     envs.close()
     writer.close()
 
-    torch.save(agent.state_dict(), "ppo.pth")
+    torch.save(agent, "ppo.pth")

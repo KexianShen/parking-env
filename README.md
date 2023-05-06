@@ -4,7 +4,7 @@
 [<img src="https://img.shields.io/badge/license-MIT-blue">](https://github.com/KexianShen/parking-env)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
-
+[<img src="https://img.shields.io/badge/%F0%9F%A4%97%20models-Huggingface-F8D521">](https://huggingface.co/shenkexian/parking-env-model)
 
 Parking-env is a gymnasium-based environment for reinforcement learning, written in a single Python file and accelerated by Numba. The environment is designed to simulate the task of parking a vehicle in a parking lot, where the agent controls the steering angle and the speed to park the vehicle successfully.
 
@@ -20,12 +20,14 @@ Parking-env is a gymnasium-based environment for reinforcement learning, written
 
 ## Installation
 To install the stable version,
-```
+
+```bash
 pip install parking-env
 ```
+
 To install the current version in editable mode,
 
-```
+```bash
 git clone https://github.com/KexianShen/parking-env.git
 cd parking-env
 pip install -e .
@@ -34,7 +36,7 @@ pip install -e .
 ## Usage
 To use parking-env, you can import it in your Python code as follows:
 
-```
+```python
 import gymnasium as gym
 
 env = gym.make("Parking-v0", render_mode="human")
