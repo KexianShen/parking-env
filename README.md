@@ -25,7 +25,7 @@ To install the stable version,
 pip install parking-env
 ```
 
-To install the current version in editable mode,
+To install the current version with additional scripts in editable mode,
 
 ```bash
 git clone https://github.com/KexianShen/parking-env.git
@@ -34,7 +34,9 @@ pip install -e .
 ```
 
 ## Usage
-To use parking-env, you can import it in your Python code as follows:
+Pre-trained models are uploaded to [Hugging Face Hub](https://huggingface.co/shenkexian/parking-env-model) with detailed notes.
+
+To use parking-env, you can code as follows:
 
 ```python
 import gymnasium as gym
@@ -52,7 +54,7 @@ while not terminated and not truncated:
 ```
 
 ## Credits
-parking-env is heavily inspired by the [HighwayEnv](https://github.com/eleurent/highway-env) environment, and some of its code was adapted for use in parking-env.
+Parking-env is heavily inspired by the [HighwayEnv](https://github.com/eleurent/highway-env) environment, and some of its code was adapted for use in parking-env.
 
 Additionally, parking-env uses the algorithms provided in [CleanRL](https://github.com/vwxyzjn/cleanrl), a collection of clean implementations of popular RL algorithms.
 
