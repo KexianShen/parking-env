@@ -213,16 +213,13 @@ class Parking(gym.Env):
             if self.multidiscrete:
                 action = np.array([LON_ACTIONS[action[0]], LAT_ACTIONS[action[1]]])
             elif self.continuous:
-                # action = np.tanh(action)  # C63
-                # action *= STEERING_LIMIT
-                action = np.clip(action, -STEERING_LIMIT, STEERING_LIMIT)
+                action = np.clip(action, -1, 1) * STEERING_LIMIT
                 action = np.array([SPEED_LIMIT, action.item()])
             elif self.multicontinuous:
-                # action = np.tanh(action)  # C63
-                # action[0] *= SPEED_LIMIT
-                # action[1] *= STEERING_LIMIT
-                action[0] = np.clip(action[0], -SPEED_LIMIT, SPEED_LIMIT)
-                action[1] = np.clip(action[1], -STEERING_LIMIT, STEERING_LIMIT)
+                action = np.clip(action, [-1, -1], [1, 1]) * [
+                    SPEED_LIMIT,
+                    STEERING_LIMIT,
+                ]
             else:
                 action = np.array([SPEED_LIMIT, LAT_ACTIONS[action]])
             kinematic_act(action, self.movable[0], DT)

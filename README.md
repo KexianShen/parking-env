@@ -18,6 +18,11 @@ Parking-env is a gymnasium-based environment for reinforcement learning, written
     <em>PPO agent with multidiscrete actions</em>
 </p>
 
+<p align="center">
+    <img src="https://raw.githubusercontent.com/KexianShen/parking-env/media/ppo-continuous-0.gif?raw=true"><br/>
+    <em>PPO agent with continuous actions</em>
+</p>
+
 ## Installation
 To install the stable version,
 
