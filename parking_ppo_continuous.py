@@ -383,4 +383,4 @@ if __name__ == "__main__":
     envs.close()
     writer.close()
 
-    torch.save(agent, "ppo_multidiscrete.pth")
+    torch.save(agent, "ppo_continuous.pth")
