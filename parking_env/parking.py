@@ -81,11 +81,13 @@ def collision_check(
             continue
         else:
             # OBB
-            rot_mat_func = lambda angle: np.array(
-                [[np.cos(angle), np.sin(angle)], [-np.sin(angle), np.cos(angle)]]
-            )
-            ego_rot_mat = rot_mat_func(ego_angle)
-            other_rot_mat = rot_mat_func(others_angle[i])
+            def get_rot_mat(angle: float):
+                return np.array(
+                    [[np.cos(angle), np.sin(angle)], [-np.sin(angle), np.cos(angle)]]
+                )
+
+            ego_rot_mat = get_rot_mat(ego_angle)
+            other_rot_mat = get_rot_mat(others_angle[i])
             rot_mat = np.vstack((ego_rot_mat, other_rot_mat))
             projections_ego = np.dot(np.asfortranarray(ego), rot_mat.T)
             projections_other = np.dot(np.asfortranarray(others[i]), rot_mat.T)
@@ -102,24 +104,44 @@ def collision_check(
     return False
 
 
-def compute_vertices(state: np.ndarray):
-    l, r, t, b = (
-        -state[4] * SCALE / 2,
-        state[4] * SCALE / 2,
-        state[5] * SCALE / 2,
-        -state[5] * SCALE / 2,
+@njit("f8[:](f8[:], f8)", fastmath=True, cache=True)
+def rotate_rad(pos, theta):
+    rot_matrix = np.array(
+        [
+            [np.cos(theta), -np.sin(theta)],
+            [np.sin(theta), np.cos(theta)],
+        ]
     )
-    vertices = np.zeros((4, 2))
-    for i, vertex in enumerate([(l, b), (l, t), (r, t), (r, b)]):
-        vertex = pygame.math.Vector2(vertex).rotate_rad(state[2])
-        vertex = np.array(
-            [
-                vertex[0] + (state[0]) * SCALE + SCREEN_W / 2,
-                vertex[1] + (state[1]) * SCALE + SCREEN_H / 2,
-            ]
-        )
-        vertices[i] = vertex
+    return rot_matrix.dot(np.asfortranarray(pos))
+
+
+@njit("f8[:,:](f8[:])", fastmath=True, cache=True)
+def compute_vertices(state: np.ndarray):
+    """
+    shape of state: (7,)
+    """
+    l, r, t, b = (
+        -state[4] / 2,
+        state[4] / 2,
+        state[5] / 2,
+        -state[5] / 2,
+    )
+    vertices = np.array([[l, b], [l, t], [r, t], [r, b]])
+
+    for i in range(vertices.shape[0]):
+        vertices[i, :] = rotate_rad(vertices[i, :], state[2]) + state[:2]
     return vertices
+
+
+@njit("f8[:,:](f8[:,:])", fastmath=True, cache=True)
+def to_pixel(pos: np.ndarray):
+    """
+    shape of pos: (num_pos, 2)
+    """
+    pos_pixel = pos.copy()
+    pos_pixel[:, 0] = pos_pixel[:, 0] * SCALE + SCREEN_W / 2
+    pos_pixel[:, 1] = pos_pixel[:, 1] * SCALE + SCREEN_H / 2
+    return pos_pixel
 
 
 def draw_rectangle(
@@ -155,7 +177,7 @@ def draw_direction_pattern(
         state_copy[0] += np.cos(state[2]) * state[4] / 8 * 3
         state_copy[1] += np.sin(state[2]) * state[4] / 8 * 3
         state_copy[4] = state[4] / 4
-        vertices = compute_vertices(state_copy)
+        vertices = to_pixel(compute_vertices(state_copy))
         draw_rectangle(surface, vertices, RED)
 
 
@@ -164,7 +186,7 @@ class Parking(gym.Env):
         "render_modes": [
             "human",
             "rgb_array",
-            "state_rgb_array",
+            "no_render",
         ],
         "render_fps": FPS,
     }
@@ -225,11 +247,17 @@ class Parking(gym.Env):
             kinematic_act(action, self.movable[0], DT)
             self.movable_vertices = compute_vertices(self.movable[0])
 
-        self.state_rgb_array = self._render("state_rgb_array")
+        if self.render_mode == "rgb_array":
+            self.state = self._render("rgb_array")
+        else:
+            self.state[0, :4] = self.movable[0, :4]
+            self.state[0, 4:] = self.movable_vertices.reshape(1, 8)
+
         reward = self._reward()
+
         if self.render_mode == "human":
             self.render()
-        return self.state_rgb_array, reward, self.terminated, self.truncated, {}
+        return self.state, reward, self.terminated, self.truncated, {}
 
     def reset(
         self,
@@ -268,6 +296,15 @@ class Parking(gym.Env):
             self.movable = np.array([randomise_state(INIT_STATE)])
             self.movable_vertices = compute_vertices(self.movable[0])
         self.goal_vertices = compute_vertices(GOAL_STATE)
+
+        self.state = np.zeros(
+            (self.movable.shape[0] + self.stationary.shape[0] + 1, 12)
+        )
+        self.state[1, :4] = GOAL_STATE[:4]
+        self.state[1, 4:] = self.goal_vertices.reshape(1, 8)
+        self.state[2:, :4] = self.stationary[:, :4]
+        self.state[2:, 4:] = self.stationary_vertices.reshape(-1, 8)
+
         self.terminated = False
         self.truncated = False
         self.run_steps = 0
@@ -330,7 +367,7 @@ class Parking(gym.Env):
                 (SCREEN_W, SCREEN_H), flags=pygame.SRCALPHA
             )
         self.surf_movable.fill((0, 0, 0, 0))
-        draw_rectangle(self.surf_movable, self.movable_vertices, GREEN)
+        draw_rectangle(self.surf_movable, to_pixel(self.movable_vertices), GREEN)
         draw_direction_pattern(self.surf_movable, self.movable[0])
         if self.surf_stationary is None:
             self.surf_stationary = pygame.Surface(
@@ -339,11 +376,11 @@ class Parking(gym.Env):
             for i in range(self.stationary.shape[0]):
                 draw_rectangle(
                     self.surf_stationary,
-                    self.stationary_vertices[i],
+                    to_pixel(self.stationary_vertices[i]),
                     obj_type=self.stationary[i, -1],
                 )
                 draw_direction_pattern(self.surf_stationary, self.stationary[i])
-            draw_rectangle(self.surf_stationary, self.goal_vertices, BLUE)
+            draw_rectangle(self.surf_stationary, to_pixel(self.goal_vertices), BLUE)
         surf = self.surf_stationary.copy()
         surf.blit(self.surf_movable, (0, 0))
         surf = pygame.transform.flip(surf, False, True)
@@ -356,8 +393,6 @@ class Parking(gym.Env):
             self.screen.blit(surf, (0, 0))
             pygame.display.flip()
         elif mode == "rgb_array":
-            return self._create_image_array(surf, (SCREEN_W, SCREEN_H))
-        elif mode == "state_rgb_array":
             return self._create_image_array(surf, (STATE_W, STATE_H))
 
     def close(self):
@@ -397,7 +432,7 @@ if __name__ == "__main__":
         restart = False
         while True:
             handle_key_input()
-            s, r, terminated, truncated, info = env.step(np.array([1.0, 0.0]))
+            s, r, terminated, truncated, info = env.step(np.array([0.5, 0.0]))
             total_reward += r
             steps += 1
             if terminated or truncated or restart or quit:
