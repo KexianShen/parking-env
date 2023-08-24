@@ -33,6 +33,22 @@ GREY = (100, 100, 100)
 # position[2], heading, speed, length, width, type
 INIT_STATE = np.array([0, 10, -PI, 4, 4.8, 1.8, 0])
 GOAL_STATE = np.array([7 * 3 / 2, -20, 0, 0, 2, 2, 1])
+STATIONARY_STATE = np.array(
+    [
+        [0, 0, 0, 0, SCREEN_W / SCALE / 2, 0.5, 1],
+        [0, (SCREEN_H - 3) / SCALE / 2, 0, 0, SCREEN_W / SCALE, 1, 1],
+        [0, -SCREEN_H / SCALE / 2, 0, 0, SCREEN_W / SCALE, 1, 1],
+        [(SCREEN_W - 3) / SCALE / 2, 0, 0, 0, 1, SCREEN_H / SCALE, 1],
+        [-SCREEN_W / SCALE / 2, 0, 0, 0, 1, SCREEN_H / SCALE, 1],
+        [-5 * 3 / 2, -20, PI / 2, 0, 4.8, 1.8, 0],
+        [-3 * 3 / 2, -20, PI / 2, 0, 4.8, 1.8, 0],
+        [-5 * 3 / 2, -5, -PI / 2, 0, 4.8, 1.8, 0],
+        [7 * 3 / 2, -5, -PI / 2, 0, 4.8, 1.8, 0],
+        [-3 / 2, 5, PI / 2, 0, 4.8, 1.8, 0],
+        [-3 * 3 / 2, 20, -PI / 2, 0, 4.8, 1.8, 0],
+        [7 * 3 / 2, 20, -PI / 2, 0, 4.8, 1.8, 0],
+    ]
+)
 MAX_STEPS = 256
 
 
@@ -210,19 +226,24 @@ class Parking(gym.Env):
             self.action_space = spaces.Box(
                 np.array([-STEERING_LIMIT]),
                 np.array([STEERING_LIMIT]),
-                dtype=np.float64,
+                dtype=np.float32,
             )
         elif self.multicontinuous:
             self.action_space = spaces.Box(
                 np.array([-SPEED_LIMIT, -STEERING_LIMIT]),
                 np.array([SPEED_LIMIT, STEERING_LIMIT]),
-                dtype=np.float64,
+                dtype=np.float32,
             )
         else:
             self.action_space = spaces.Discrete(N_SAMPLES_LAT_ACTION)
-        self.observation_space = spaces.Box(
-            low=0, high=255, shape=(STATE_H, STATE_W, 3), dtype=np.uint8
-        )
+        if render_mode == "rgb_array":
+            self.observation_space = spaces.Box(
+                low=0, high=255, shape=(STATE_H, STATE_W, 3), dtype=np.uint8
+            )
+        else:
+            self.observation_space = spaces.Box(
+                -np.Inf, np.Inf, (STATIONARY_STATE.shape[0] + 2, 12), dtype=np.float32
+            )
         self.render_mode = render_mode
         self.screen = None
         self.surf = None
@@ -265,22 +286,7 @@ class Parking(gym.Env):
         options: Optional[dict] = None,
     ):
         super().reset(seed=seed)
-        self.stationary = np.array(
-            [
-                [0, 0, 0, 0, SCREEN_W / SCALE / 2, 0.5, 1],
-                [0, (SCREEN_H - 3) / SCALE / 2, 0, 0, SCREEN_W / SCALE, 1, 1],
-                [0, -SCREEN_H / SCALE / 2, 0, 0, SCREEN_W / SCALE, 1, 1],
-                [(SCREEN_W - 3) / SCALE / 2, 0, 0, 0, 1, SCREEN_H / SCALE, 1],
-                [-SCREEN_W / SCALE / 2, 0, 0, 0, 1, SCREEN_H / SCALE, 1],
-                [-5 * 3 / 2, -20, PI / 2, 0, 4.8, 1.8, 0],
-                [-3 * 3 / 2, -20, PI / 2, 0, 4.8, 1.8, 0],
-                [-5 * 3 / 2, -5, -PI / 2, 0, 4.8, 1.8, 0],
-                [7 * 3 / 2, -5, -PI / 2, 0, 4.8, 1.8, 0],
-                [-3 / 2, 5, PI / 2, 0, 4.8, 1.8, 0],
-                [-3 * 3 / 2, 20, -PI / 2, 0, 4.8, 1.8, 0],
-                [7 * 3 / 2, 20, -PI / 2, 0, 4.8, 1.8, 0],
-            ]
-        )
+        self.stationary = STATIONARY_STATE
         self.stationary_vertices = np.zeros((self.stationary.shape[0], 4, 2))
         for i in range(self.stationary.shape[0]):
             self.stationary_vertices[i] = compute_vertices(self.stationary[i])
@@ -298,7 +304,7 @@ class Parking(gym.Env):
         self.goal_vertices = compute_vertices(GOAL_STATE)
 
         self.state = np.zeros(
-            (self.movable.shape[0] + self.stationary.shape[0] + 1, 12)
+            (self.movable.shape[0] + self.stationary.shape[0] + 1, 12), dtype=np.float32
         )
         self.state[1, :4] = GOAL_STATE[:4]
         self.state[1, 4:] = self.goal_vertices.reshape(1, 8)
