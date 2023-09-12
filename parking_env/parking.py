@@ -22,6 +22,10 @@ SCREEN_H = 400
 SCREEN_W = 500
 
 SCALE = 8
+STATE_SCALE = np.array(
+    [SCREEN_W / SCALE, SCREEN_H / SCALE, 1, 1, SPEED_LIMIT]
+    + [SCREEN_W / SCALE, SCREEN_H / SCALE] * 4
+)
 FPS = 30
 RED = (255, 100, 100)
 GREEN = (50, 200, 0)
@@ -242,7 +246,7 @@ class Parking(gym.Env):
             )
         else:
             self.observation_space = spaces.Box(
-                -np.Inf, np.Inf, (STATIONARY_STATE.shape[0] + 2, 12), dtype=np.float32
+                -1.0, 1.0, (STATIONARY_STATE.shape[0] + 2, 13), dtype=np.float32
             )
         self.render_mode = render_mode
         self.screen = None
@@ -269,16 +273,19 @@ class Parking(gym.Env):
             self.movable_vertices = compute_vertices(self.movable[0])
 
         if self.render_mode == "rgb_array":
-            self.state = self._render("rgb_array")
+            self.obs = self._render("rgb_array")
         else:
-            self.state[0, :4] = self.movable[0, :4]
-            self.state[0, 4:] = self.movable_vertices.reshape(1, 8)
+            self.obs[0, :2] = self.movable[0, :2]
+            self.obs[0, 2:4] = [np.cos(self.movable[0, 2]), np.sin(self.movable[0, 2])]
+            self.obs[0, 4] = self.movable[0, 3]
+            self.obs[0, 5:] = self.movable_vertices.reshape(1, 8)
+            self.obs[0, :] /= STATE_SCALE
 
         reward = self._reward()
 
         if self.render_mode == "human":
             self.render()
-        return self.state, reward, self.terminated, self.truncated, {}
+        return self.obs, reward, self.terminated, self.truncated, {}
 
     def reset(
         self,
@@ -303,13 +310,24 @@ class Parking(gym.Env):
             self.movable_vertices = compute_vertices(self.movable[0])
         self.goal_vertices = compute_vertices(GOAL_STATE)
 
-        self.state = np.zeros(
-            (self.movable.shape[0] + self.stationary.shape[0] + 1, 12), dtype=np.float32
-        )
-        self.state[1, :4] = GOAL_STATE[:4]
-        self.state[1, 4:] = self.goal_vertices.reshape(1, 8)
-        self.state[2:, :4] = self.stationary[:, :4]
-        self.state[2:, 4:] = self.stationary_vertices.reshape(-1, 8)
+        if self.render_mode != "rgb_array":
+            self.obs = np.zeros(
+                (self.movable.shape[0] + self.stationary.shape[0] + 1, 13),
+                dtype=np.float32,
+            )
+            self.obs[1, :2] = GOAL_STATE[:2]
+            self.obs[1, 2:5] = [
+                np.cos(GOAL_STATE[2]),
+                np.sin(GOAL_STATE[2]),
+                GOAL_STATE[3],
+            ]
+            self.obs[1, 5:] = self.goal_vertices.reshape(1, 8)
+            self.obs[2:, :2] = self.stationary[:, :2]
+            self.obs[2:, 2] = np.cos(self.stationary[:, 2])
+            self.obs[2:, 3] = np.sin(self.stationary[:, 2])
+            self.obs[2:, 4] = self.stationary[:, 3]
+            self.obs[2:, 5:] = self.stationary_vertices.reshape(-1, 8)
+            self.obs /= STATE_SCALE
 
         self.terminated = False
         self.truncated = False
