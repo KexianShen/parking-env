@@ -46,7 +46,9 @@ To use parking-env, you can code as follows:
 ```python
 import gymnasium as gym
 
-env = gym.make("Parking-v0", render_mode="human")
+env = gym.make(
+    "Parking-v0", render_mode="human", observation_type="vector", action_type="discrete"
+)
 
 env.reset()
 terminated = False
@@ -59,7 +61,7 @@ while not terminated and not truncated:
 ```
 
 ## Credits
-Parking-env is heavily inspired by the [HighwayEnv](https://github.com/eleurent/highway-env) environment, and some of its code was adapted for use in parking-env.
+Parking-env is heavily inspired by the [HighwayEnv](https://github.com/Farama-Foundation/HighwayEnv) environment, and some of its code was adapted for use in parking-env.
 
 Additionally, parking-env uses the algorithms provided in [CleanRL](https://github.com/vwxyzjn/cleanrl), a collection of clean implementations of popular RL algorithms.
 
