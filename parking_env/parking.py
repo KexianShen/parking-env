@@ -209,46 +209,60 @@ class Parking(gym.Env):
             "no_render",
         ],
         "render_fps": FPS,
+        "observation_types": [
+            "rgb",
+            "vector",
+        ],
+        "action_types": [
+            "discrete",
+            "multidiscrete",
+            "continuous",
+            "multicontinuous",
+        ],
     }
 
     def __init__(
         self,
         render_mode: Optional[str] = None,
-        multidiscrete: bool = False,
-        continuous: bool = False,
-        multicontinuous: bool = False,
+        observation_type: Optional[str] = None,
+        action_type: Optional[str] = None,
     ) -> None:
         super().__init__()
-        self.multidiscrete = multidiscrete
-        self.continuous = continuous
-        self.multicontinuous = multicontinuous
-        if self.multidiscrete:
+        assert render_mode in self.metadata["render_modes"]
+        assert observation_type in self.metadata["observation_types"]
+        assert action_type in self.metadata["action_types"]
+        self.render_mode = render_mode
+        self.observation_type = observation_type
+        self.action_type = action_type
+
+        if observation_type == "vector":
+            self.observation_space = spaces.Box(
+                -1.0, 1.0, (STATIONARY_STATE.shape[0] + 2, 13), dtype=np.float32
+            )
+        elif observation_type == "rgb":
+            self.observation_space = spaces.Box(
+                low=0, high=255, shape=(STATE_H, STATE_W, 3), dtype=np.uint8
+            )
+
+        if action_type == "discrete":
+            self.action_space = spaces.Discrete(N_SAMPLES_LAT_ACTION)
+        elif action_type == "multidiscrete":
             self.action_space = spaces.MultiDiscrete(
                 [N_SAMPLES_LON_ACTION, N_SAMPLES_LAT_ACTION]
             )
-        elif self.continuous:
+        elif action_type == "continuous":
             self.action_space = spaces.Box(
                 np.array([-STEERING_LIMIT]),
                 np.array([STEERING_LIMIT]),
                 dtype=np.float32,
             )
-        elif self.multicontinuous:
+        elif action_type == "multicontinuous":
             self.action_space = spaces.Box(
                 np.array([-SPEED_LIMIT, -STEERING_LIMIT]),
                 np.array([SPEED_LIMIT, STEERING_LIMIT]),
                 dtype=np.float32,
             )
-        else:
-            self.action_space = spaces.Discrete(N_SAMPLES_LAT_ACTION)
-        if render_mode == "rgb_array":
-            self.observation_space = spaces.Box(
-                low=0, high=255, shape=(STATE_H, STATE_W, 3), dtype=np.uint8
-            )
-        else:
-            self.observation_space = spaces.Box(
-                -1.0, 1.0, (STATIONARY_STATE.shape[0] + 2, 13), dtype=np.float32
-            )
-        self.render_mode = render_mode
+
         self.screen = None
         self.surf = None
         self.surf_movable = None
@@ -257,24 +271,24 @@ class Parking(gym.Env):
 
     def step(self, action: Union[np.ndarray, int]):
         if action is not None:
-            if self.multidiscrete:
+            if self.action_type == "discrete":
+                action = np.array([SPEED_LIMIT, LAT_ACTIONS[action]])
+            elif self.action_type == "multidiscrete":
                 action = np.array([LON_ACTIONS[action[0]], LAT_ACTIONS[action[1]]])
-            elif self.continuous:
+            elif self.action_type == "continuous":
                 action = np.clip(action, -1, 1) * STEERING_LIMIT
                 action = np.array([SPEED_LIMIT, action.item()])
-            elif self.multicontinuous:
+            elif self.action_type == "multicontinuous":
                 action = np.clip(action, [-1, -1], [1, 1]) * [
                     SPEED_LIMIT,
                     STEERING_LIMIT,
                 ]
-            else:
-                action = np.array([SPEED_LIMIT, LAT_ACTIONS[action]])
             kinematic_act(action, self.movable[0], DT)
             self.movable_vertices = compute_vertices(self.movable[0])
 
-        if self.render_mode == "rgb_array":
-            self.obs = self._render("rgb_array")
-        else:
+        if self.observation_type == "rgb":
+            self.obs = self._render("rgb_array", STATE_W, STATE_H)
+        elif self.observation_type == "vector":
             self.obs[0, :2] = self.movable[0, :2]
             self.obs[0, 2:4] = [np.cos(self.movable[0, 2]), np.sin(self.movable[0, 2])]
             self.obs[0, 4] = self.movable[0, 3]
@@ -310,7 +324,7 @@ class Parking(gym.Env):
             self.movable_vertices = compute_vertices(self.movable[0])
         self.goal_vertices = compute_vertices(GOAL_STATE)
 
-        if self.render_mode != "rgb_array":
+        if self.observation_type == "vector":
             self.obs = np.zeros(
                 (self.movable.shape[0] + self.stationary.shape[0] + 1, 13),
                 dtype=np.float32,
@@ -376,38 +390,41 @@ class Parking(gym.Env):
         else:
             return self._render(self.render_mode)
 
-    def _render(self, mode: str):
+    def _render(self, mode: str, rgb_w: int = SCREEN_W, rgb_h: int = SCREEN_H):
         assert mode in self.metadata["render_modes"]
 
-        if self.screen is None and mode == "human":
+        if mode == "human" and self.screen is None:
             pygame.init()
             pygame.display.init()
             self.screen = pygame.display.set_mode((SCREEN_W, SCREEN_H))
             if self.clock is None:
                 self.clock = pygame.time.Clock()
 
-        if self.surf_movable is None:
-            self.surf_movable = pygame.Surface(
-                (SCREEN_W, SCREEN_H), flags=pygame.SRCALPHA
-            )
-        self.surf_movable.fill((0, 0, 0, 0))
-        draw_rectangle(self.surf_movable, to_pixel(self.movable_vertices), GREEN)
-        draw_direction_pattern(self.surf_movable, self.movable[0])
-        if self.surf_stationary is None:
-            self.surf_stationary = pygame.Surface(
-                (SCREEN_W, SCREEN_H), flags=pygame.SRCALPHA
-            )
-            for i in range(self.stationary.shape[0]):
-                draw_rectangle(
-                    self.surf_stationary,
-                    to_pixel(self.stationary_vertices[i]),
-                    obj_type=self.stationary[i, -1],
+        if mode == "human" or mode == "rgb_array":
+            if self.surf_stationary is None:
+                self.surf_stationary = pygame.Surface(
+                    (SCREEN_W, SCREEN_H), flags=pygame.SRCALPHA
                 )
-                draw_direction_pattern(self.surf_stationary, self.stationary[i])
-            draw_rectangle(self.surf_stationary, to_pixel(self.goal_vertices), BLUE)
-        surf = self.surf_stationary.copy()
-        surf.blit(self.surf_movable, (0, 0))
-        surf = pygame.transform.flip(surf, False, True)
+                for i in range(self.stationary.shape[0]):
+                    draw_rectangle(
+                        self.surf_stationary,
+                        to_pixel(self.stationary_vertices[i]),
+                        obj_type=self.stationary[i, -1],
+                    )
+                    draw_direction_pattern(self.surf_stationary, self.stationary[i])
+                draw_rectangle(self.surf_stationary, to_pixel(self.goal_vertices), BLUE)
+
+            if self.surf_movable is None:
+                self.surf_movable = pygame.Surface(
+                    (SCREEN_W, SCREEN_H), flags=pygame.SRCALPHA
+                )
+            self.surf_movable.fill((0, 0, 0, 0))
+            draw_rectangle(self.surf_movable, to_pixel(self.movable_vertices), GREEN)
+            draw_direction_pattern(self.surf_movable, self.movable[0])
+
+            surf = self.surf_stationary.copy()
+            surf.blit(self.surf_movable, (0, 0))
+            surf = pygame.transform.flip(surf, False, True)
 
         if mode == "human":
             pygame.event.pump()
@@ -417,7 +434,7 @@ class Parking(gym.Env):
             self.screen.blit(surf, (0, 0))
             pygame.display.flip()
         elif mode == "rgb_array":
-            return self._create_image_array(surf, (STATE_W, STATE_H))
+            return self._create_image_array(surf, (rgb_w, rgb_h))
 
     def close(self):
         if self.screen is not None:
@@ -446,7 +463,9 @@ if __name__ == "__main__":
             if event.type == pygame.QUIT:
                 quit = True
 
-    env = Parking(render_mode="human", multicontinuous=True)
+    env = Parking(
+        render_mode="human", observation_type="vector", action_type="multicontinuous"
+    )
 
     quit = False
     while not quit:

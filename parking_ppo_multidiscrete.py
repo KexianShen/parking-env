@@ -13,8 +13,6 @@ import torch.optim as optim
 from torch.distributions.categorical import Categorical
 from torch.utils.tensorboard import SummaryWriter
 
-import parking_env
-
 
 def parse_args():
     # fmt: off
@@ -80,7 +78,12 @@ def parse_args():
 
 def make_env(env_id, seed, idx, capture_video, run_name):
     def thunk():
-        env = gym.make(id=env_id, render_mode="rgb_array", multidiscrete=True)
+        env = gym.make(
+            id=env_id,
+            render_mode="no_render",
+            observation_type="rgb",
+            action_type="multidiscrete",
+        )
         env = gym.wrappers.RecordEpisodeStatistics(env)
         if capture_video:
             if idx == 0:
@@ -184,10 +187,10 @@ if __name__ == "__main__":
     ), "only discrete action space is supported"
 
     agent = Agent(envs).to(device)
-    try:
-        agent.load_state_dict(torch.load("ppo_multidiscrete.pth"))
-    except:
-        pass
+    # try:
+    #     agent = torch.load("ppo_multidiscrete.pth").to(device)
+    # except:
+    #     pass
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
