@@ -264,7 +264,7 @@ class Encoder(nn.Module):
             pos_encodings(num_pos=num_time, encoding_dim=self.attn_cfg["embed_dim"])
             .expand(num_batch, num_agent, -1, -1)
             .view(-1, num_time, self.attn_cfg["embed_dim"])
-            .cuda()
+            .to(feats.device)
         )
         feats = feats + pos_enc
         return feats.view(num_batch, num_agent, num_time, self.attn_cfg["embed_dim"])
