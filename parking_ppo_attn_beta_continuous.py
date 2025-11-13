@@ -15,6 +15,8 @@ from torch import Tensor
 from torch.distributions.beta import Beta
 from torch.utils.tensorboard import SummaryWriter
 
+import parking_env
+
 
 def parse_args():
     # fmt: off
@@ -357,9 +359,9 @@ if __name__ == "__main__":
             for i in range(args.num_envs)
         ]
     )
-    assert isinstance(
-        envs.single_action_space, gym.spaces.Box
-    ), "only continuous action space is supported"
+    assert isinstance(envs.single_action_space, gym.spaces.Box), (
+        "only continuous action space is supported"
+    )
 
     agent = Agent().apply(kaiming_init_hook).to(device)
     # try:
@@ -413,9 +415,10 @@ if __name__ == "__main__":
             )
             done = np.logical_or(terminated, truncated)
             rewards[step] = torch.tensor(reward).to(device).view(-1)
-            next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(
-                done
-            ).to(device)
+            next_obs, next_done = (
+                torch.Tensor(next_obs).to(device),
+                torch.Tensor(done).to(device),
+            )
 
             # Only print when at least 1 env is done
             if "final_info" not in infos:

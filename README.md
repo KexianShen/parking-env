@@ -46,6 +46,8 @@ To use parking-env, you can code as follows:
 ```python
 import gymnasium as gym
 
+import parking_env
+
 env = gym.make(
     "Parking-v0", render_mode="human", observation_type="vector", action_type="discrete"
 )

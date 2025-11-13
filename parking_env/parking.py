@@ -112,11 +112,13 @@ def collision_check(
             projections_ego = np.dot(np.asfortranarray(ego), rot_mat.T)
             projections_other = np.dot(np.asfortranarray(others[i]), rot_mat.T)
             for j in range(len(rot_mat)):
-                min1, max1 = np.min(projections_ego[:, j]), np.max(
-                    projections_ego[:, j]
+                min1, max1 = (
+                    np.min(projections_ego[:, j]),
+                    np.max(projections_ego[:, j]),
                 )
-                min2, max2 = np.min(projections_other[:, j]), np.max(
-                    projections_other[:, j]
+                min2, max2 = (
+                    np.min(projections_other[:, j]),
+                    np.max(projections_other[:, j]),
                 )
                 if max1 < min2 or max2 < min1:
                     continue
